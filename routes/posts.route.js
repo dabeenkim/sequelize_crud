@@ -1,5 +1,5 @@
 const express = require("express");
-const {Op} = require("sequelize");
+const { Op } = require("sequelize");
 const { Posts } = require("../models");
 const router = express.Router();
 
@@ -35,33 +35,51 @@ router.get("/posts/:postId", async(req, res) => {
 
 
 //게시글 수정api
-router.put("/posts/:postId", async(req, res) => {
-    const {postId} = req.params;
-    const {title, content, password} =req.body;
+router.put('/posts/:postId', async (req, res) => {
+  const { postId } = req.params;
+  const { title, content, password } = req.body;
 
-    const post = await Posts.findOne({
-        where: {postId : postId},
-    });
+  const post = await Posts.findOne({ where: { postId } });
+  if (!post) {
+    return res.status(404).json({ message: '게시글이 존재하지 않습니다.' });
+  } else if (post.password !== password) {
+    return res.status(401).json({ message: '비밀번호가 일치하지 않습니다.' });
+  }
 
-    if(!post) {
-        return res.status(404).json({
-            message:"게시글이 존재하지 않습니다."
-        });
-    }else if(post.password !== password){
-        return res.status(401).json({
-            message: "게시글의 비밀번화와 전달받은 비밀번호가 일치하지않습니다."
-        });
+  await Posts.update(
+    { title, content },
+    {
+      where: {
+        [Op.and]: [{ postId }, [{ password }]], //게시글의 비밀번호와 postId가 일치할때 수정한다.
+      }
     }
+  );
 
-    await Posts.update(
-        { title, content }, //수정할 컬럼 및 데이터
-        {
-            where:{
-                [Op.end]: [{postId}, {password}]    //게시글의 비밀번호와 postId가 일치할 때 수정한다.
-            },
-        }  //어떤 데이터를 수정할지 작성
-    );
+  res.status(200).json({ data: "게시글이 수정되었습니다." });
+});
 
-    return res.status(200).json({message:"게시글이 수정되었습니다."})
-})
+
+//게시글 삭제api
+router.delete('/posts/:postId', async (req, res) => {
+  const { postId } = req.params;
+  const { password } = req.body;
+
+  const post = await Posts.findOne({ where: { postId } });
+  if (!post) {
+    return res.status(404).json({ message: '게시글이 존재하지 않습니다.' });
+  } else if (post.password !== password) {
+    return res.status(401).json({ message: '비밀번호가 일치하지 않습니다.' });
+  }
+
+  //게시글을 삭제
+  await Posts.destroy( {
+      where: {
+        [Op.and]: [{ postId }, [{ password }]], //게시글의 비밀번호와 postId가 일치할때 삭제한다.
+      }}
+  );
+
+  res.status(200).json({ data: "게시글이 삭제되었습니다." });
+});
+
+
 module.exports = router;
